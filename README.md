@@ -9,7 +9,7 @@ personalisable feed.
 
 ## Requirements
 
-- Node.js 22 (see `.nvmrc`) and npm
+- Node.js 26 (see `.nvmrc`) and npm
 
 ## Getting started
 
