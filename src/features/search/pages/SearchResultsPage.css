@@ -1,0 +1,14 @@
+.search-results-page {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: var(--space-4);
+}
+
+.search-results-page__header {
+  margin-bottom: var(--space-6);
+}
+
+.search-results-page__header h1 {
+  font-size: var(--text-xl);
+  margin: 0;
+}
