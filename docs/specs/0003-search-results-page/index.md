@@ -3,6 +3,9 @@
 **Date**: 2026-11-09
 **Status**: Accepted
 
+_Decision history (Context, Options considered, Rationale) moved to [rationale.md](./rationale.md).
+Verify steps derived from this spec's acceptance criteria are in [verify.md](./verify.md)._
+
 ## Summary
 
 This decides how the search results page looks and behaves: a header, a keyword search box, filter chips for
@@ -10,20 +13,6 @@ sources and categories, a results feed, and paging controls, all wired to the st
 built. It also adds a second page, an article detail view, reached by clicking a card. Since none of the three
 news providers support looking an article up by id, the detail page carries the article's data with it when
 you navigate there, rather than fetching it again.
-
-## Context
-
-Spec 0002 built the Redux state layer (preferences, the active search, and the merged `searchArticles` query)
-but deliberately left the UI for a later slice. That UI does not exist yet: `App.tsx` is still a placeholder
-heading, and nothing on screen lets a reader type a keyword, toggle a source or category, see the merged feed,
-page through it, or recover from a partial provider failure.
-
-The feed itself raises a few forces worth naming. The three providers return different page sizes and expose
-no shared "total results" count, so there is no single reliable "page 12 of 40" figure across the merged feed.
-None of the three support fetching one article by its id either, which matters once an article detail view is
-in scope: a provider agnostic way to show "this one article" has to come from somewhere other than a lookup
-call. Finally, the `Article` type's `imageUrl` is optional, so every card needs to handle a missing image
-without a broken link or empty gap.
 
 ## Requirements
 
@@ -62,60 +51,11 @@ without a broken link or empty gap.
 - **AC-11**: An article with no `imageUrl` shows a placeholder image instead of a broken image icon or empty
   space.
 
-## Options considered
-
-### Option 1: React Router, article data passed via navigation state (recommended)
-
-A `BrowserRouter` with two routes, `/` and `/article/:id`. Clicking a card calls `navigate` with the full
-`Article` object as router state; the detail page reads it from `location.state`. A direct visit or refresh on
-`/article/:id` has no state to read, so it shows the AC-10 fallback.
-
-**Pros**:
-- No new fetch logic, no per-provider "get by id" workaround; the data the list already loaded is reused as is.
-- Small, standard React Router usage; nothing provider specific leaks into the routing layer.
-
-**Cons**:
-- A direct link or a refresh on the detail page loses the article; the reader has to go back through the feed.
-
-### Option 2: No router; inline expand or modal on the same page
-
-Clicking a card expands it in place or opens a modal with the same detail content, no navigation, no second
-route.
-
-**Pros**:
-- No new dependency, no "lost on refresh" problem, since there is no second URL to refresh.
-
-**Cons**:
-- No shareable or bookmarkable URL for an article, and no clean place to grow a second real page later (the
-  engineer wants a route-based detail page now, not a modal).
-
-### Option 3: React Router, article cached in sessionStorage keyed by id
-
-Same routing as Option 1, but every loaded article is also written to `sessionStorage` keyed by its id, so a
-refresh on the detail page still resolves within the same browser session.
-
-**Pros**:
-- Survives a refresh or a same-tab back/forward within the session, unlike Option 1.
-
-**Cons**:
-- Extra bookkeeping on every search (write every result to storage), for a benefit (surviving a refresh) the
-  engineer did not ask for; Option 1's simpler fallback message is an acceptable tradeoff for this app's size.
-
 ## Decision
 
 **Chosen option**: Option 1: React Router, article data passed via navigation state
 
 **Implementation skills**: `react-router-declarative-mode` (`remix-run/agent-skills`, `.agents/skills/react-router-declarative-mode/`)
-
-## Rationale
-
-None of the three provider APIs support fetching a single article by id, so any detail page needs its data
-handed to it rather than looked up. Option 1 does that with the least new code: the list already has the full
-`Article`, and passing it as navigation state costs nothing beyond the route itself. Option 3's session cache
-would make a direct refresh survive, but that resilience was not asked for, and the extra write-on-every-search
-bookkeeping is not worth it for a tradeoff the engineer explicitly accepted (a plain "go back to the feed"
-message). Option 2 was ruled out directly: the engineer asked for a real second route, not a same-page modal,
-and a route based detail page is also the cheaper foundation if more pages are added later.
 
 ## Feature design
 
@@ -198,23 +138,25 @@ the placeholder image service (`placehold.co`) needs no key either.
   (`/audit`) so stack and conventions, including the newly installed `react-router-declarative-mode` skill, are
   recorded instead of re-inferred from scratch on every `/architect` or `/develop` run.
 - [ ] If reload-safe or shareable article detail URLs become a real requirement later, revisit Option 3 (the
-  `sessionStorage` cache) from this spec's Options considered.
+  `sessionStorage` cache) from this spec's Options considered (see [rationale.md](./rationale.md)).
+- [ ] This project also has no `docs/scope/` tree, so `/develop` had no feature row to resume from or tick;
+  consider `/scope` to track this and future features.
 
 ## Build plan
 
-1. Add `react-router-dom`; set up `BrowserRouter` with routes `/` (`SearchResultsPage`) and `/article/:id`
+1. [x] Add `react-router-dom`; set up `BrowserRouter` with routes `/` (`SearchResultsPage`) and `/article/:id`
    (`ArticleDetailPage`) in `src/app`, replacing the current placeholder `App.tsx`. Satisfies **AC-1**, **AC-9**,
    **AC-10**.
-2. Build the shared presentational pieces (`ArticleCard`, a skeleton version of it, `StatusBanner`) using
+2. [x] Build the shared presentational pieces (`ArticleCard`, a skeleton version of it, `StatusBanner`) using
    `src/styles/tokens.css`, including the `placehold.co` image fallback. Satisfies **AC-5**, **AC-7**, **AC-11**.
-3. Build `SearchBar` (debounced keyword input) and `FilterChips` (source/category toggle group with the
+3. [x] Build `SearchBar` (debounced keyword input) and `FilterChips` (source/category toggle group with the
    last-one-disabled rule), wired to `searchParamsSlice`/`preferencesSlice`. Satisfies **AC-2**, **AC-3**,
    **AC-4**.
-4. Build `ArticleList` and `Pagination` (Previous/Next), wired to `newsApi.useSearchArticlesQuery`. Satisfies
+4. [x] Build `ArticleList` and `Pagination` (Previous/Next), wired to `newsApi.useSearchArticlesQuery`. Satisfies
    **AC-1**, **AC-5**, **AC-6**, **AC-8**.
-5. Compose `SearchResultsPage` (header, `SearchBar`, `FilterChips`, `StatusBanner`, `ArticleList`, `Pagination`).
+5. [x] Compose `SearchResultsPage` (header, `SearchBar`, `FilterChips`, `StatusBanner`, `ArticleList`, `Pagination`).
    Satisfies **AC-1** through **AC-8**.
-6. Build `ArticleDetailPage` reading `location.state.article`, with the AC-10 fallback and the external
+6. [x] Build `ArticleDetailPage` reading `location.state.article`, with the AC-10 fallback and the external
    "Read full article" link. Satisfies **AC-9**, **AC-10**.
-7. Component tests: debounced search, chip disabled state on the last entry, error banner rendering, pagination
+7. [x] Component tests: debounced search, chip disabled state on the last entry, error banner rendering, pagination
    disabling, and the detail page's no-state fallback. Covers the Critical test scenarios above.
