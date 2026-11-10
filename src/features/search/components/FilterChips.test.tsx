@@ -8,7 +8,7 @@ describe('FilterChips', () => {
     renderWithProviders(<FilterChips />, {
       preloadedState: {
         preferences: { preferredSources: ['guardian'], preferredCategories: ['general'] },
-        searchParams: { keyword: '', category: 'general', sources: ['guardian'], page: 1 },
+        searchParams: { keyword: '', categories: ['general'], sources: ['guardian'], page: 1 },
       },
     });
 

@@ -8,7 +8,8 @@ import {
 
 export interface SearchParamsState {
   keyword: string;
-  category: Category | null;
+  /** Ordered oldest-selected to newest-selected, mirrored from preferences. */
+  categories: Category[];
   sources: SourceId[];
   page: number;
 }
@@ -16,7 +17,7 @@ export interface SearchParamsState {
 function seedFromPreferences(preferences: PreferencesState): SearchParamsState {
   return {
     keyword: '',
-    category: preferences.preferredCategories[0] ?? 'general',
+    categories: preferences.preferredCategories,
     sources: preferences.preferredSources,
     page: 1,
   };
@@ -30,22 +31,18 @@ const searchParamsSlice = createSlice({
       state.keyword = action.payload;
       state.page = 1;
     },
-    setCategory(state, action: PayloadAction<Category | null>) {
-      state.category = action.payload;
-      state.page = 1;
-    },
     setPage(state, action: PayloadAction<number>) {
       state.page = action.payload;
     },
     syncFromPreferences(state, action: PayloadAction<PreferencesState>) {
       state.sources = action.payload.preferredSources;
-      state.category = action.payload.preferredCategories[0] ?? 'general';
+      state.categories = action.payload.preferredCategories;
       state.page = 1;
     },
   },
 });
 
-export const { setKeyword, setCategory, setPage, syncFromPreferences } = searchParamsSlice.actions;
+export const { setKeyword, setPage, syncFromPreferences } = searchParamsSlice.actions;
 export const searchParamsReducer = searchParamsSlice.reducer;
 
 export const selectActiveSearchParams = (state: RootState): SearchParamsState => state.searchParams;
