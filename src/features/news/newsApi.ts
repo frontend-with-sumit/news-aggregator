@@ -14,7 +14,11 @@ export interface SourceError {
 
 export interface SearchArticlesArgs {
   keyword: string;
-  category: Category | null;
+  /**
+   * Ordered oldest-selected to newest-selected (mirrors preferences.preferredCategories'
+   * insertion order). Empty means no category filter at all.
+   */
+  categories: Category[];
   sources: SourceId[];
   page: number;
 }
@@ -33,40 +37,75 @@ function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+interface FetchResult {
+  sourceId: SourceId;
+  category: Category | undefined;
+  articles: Article[];
+  errorMessage: string | null;
+}
+
 export const newsApi = createApi({
   reducerPath: 'newsApi',
   baseQuery: fakeBaseQuery<SearchArticlesError>(),
   endpoints: (builder) => ({
     searchArticles: builder.query<SearchArticlesResult, SearchArticlesArgs>({
       async queryFn(args, { signal }) {
-        const query: ArticleQuery = {
-          keyword: args.keyword || undefined,
-          category: args.category ?? undefined,
-          page: args.page,
-        };
+        // undefined stands for "no category filter"; each adapter already treats a
+        // missing category the same as 'general' (no section/facet restriction).
+        const categoryGroups: (Category | undefined)[] =
+          args.categories.length > 0 ? args.categories : [undefined];
 
-        const perSource = await Promise.all(
-          args.sources.map(async (sourceId) => {
+        const fetches: Promise<FetchResult>[] = args.sources.flatMap((sourceId) =>
+          categoryGroups.map(async (category) => {
+            const query: ArticleQuery = {
+              keyword: args.keyword || undefined,
+              category,
+              page: args.page,
+            };
             try {
               const articles = await NEWS_SOURCES[sourceId].search(query, signal);
-              return { sourceId, articles, errorMessage: null as string | null };
+              return { sourceId, category, articles, errorMessage: null };
             } catch (error) {
-              return { sourceId, articles: [] as Article[], errorMessage: toErrorMessage(error) };
+              return { sourceId, category, articles: [], errorMessage: toErrorMessage(error) };
             }
           }),
         );
 
-        const sourceErrors: SourceError[] = perSource
-          .filter((result) => result.errorMessage !== null)
-          .map((result) => ({ source: result.sourceId, message: result.errorMessage! }));
+        const results = await Promise.all(fetches);
+
+        // A source counts as failed only if every one of its category fetches failed;
+        // a failure for one selected category while another succeeds is tolerated.
+        const sourceErrors: SourceError[] = args.sources.flatMap((sourceId) => {
+          const forSource = results.filter((result) => result.sourceId === sourceId);
+          const firstError = forSource.find((result) => result.errorMessage !== null)?.errorMessage;
+          const allFailed =
+            forSource.length > 0 && forSource.every((result) => result.errorMessage !== null);
+          return allFailed && firstError ? [{ source: sourceId, message: firstError }] : [];
+        });
 
         if (args.sources.length > 0 && sourceErrors.length === args.sources.length) {
           return { error: { message: 'All selected sources failed', sourceErrors } };
         }
 
-        const articles = perSource
-          .flatMap((result) => result.articles)
-          .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+        // Group by category, most-recently-selected category first (so toggling on a
+        // new category surfaces its articles at the top of the feed); newest-first
+        // within each group. Dedupe articles that surface under more than one
+        // category/source (e.g. the unfiltered 'general' fetch overlapping a specific
+        // category), keeping each one only in its highest-priority group.
+        const seenIds = new Set<string>();
+        const articles: Article[] = [];
+        for (const category of [...categoryGroups].reverse()) {
+          const group = results
+            .filter((result) => result.category === category && result.errorMessage === null)
+            .flatMap((result) => result.articles)
+            .filter((article) => {
+              if (seenIds.has(article.id)) return false;
+              seenIds.add(article.id);
+              return true;
+            })
+            .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+          articles.push(...group);
+        }
 
         return { data: { articles, sourceErrors } };
       },

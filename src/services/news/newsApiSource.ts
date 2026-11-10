@@ -52,14 +52,14 @@ export const newsApiSource: NewsSource = {
 
   async search(query: ArticleQuery, signal: AbortSignal): Promise<Article[]> {
     const category = query.category ?? 'general';
-    // /top-headlines supports a category filter but no date range; /everything is the
-    // reverse. Prefer top-headlines when a category was asked for and no range was given,
-    // since matching the category exactly matters more than keyword-only search quality.
-    const useTopHeadlines = Boolean(query.category) && !query.from && !query.to;
+    // /top-headlines supports a category filter but no date range and no title-only
+    // matching; /everything is the reverse. Prefer top-headlines only for a pure
+    // category browse (no keyword): once a keyword is given, /everything's `qInTitle`
+    // is the only way to match the headline instead of the full article body.
+    const useTopHeadlines = Boolean(query.category) && !query.from && !query.to && !query.keyword;
 
     if (useTopHeadlines) {
       const qs = buildQueryString({
-        q: query.keyword,
         category: CATEGORY_TO_TOP_HEADLINES_CATEGORY[category],
         page: query.page,
         pageSize: 20,
@@ -68,11 +68,11 @@ export const newsApiSource: NewsSource = {
         `${PROVIDER_ROUTES.newsapi.basePath}/top-headlines${qs}`,
         signal,
       );
-      return articles.map((article) => toArticle(article, category));
+      return (articles ?? []).map((article) => toArticle(article, category));
     }
 
     const qs = buildQueryString({
-      q: query.keyword || category,
+      qInTitle: query.keyword || category,
       from: query.from,
       to: query.to,
       page: query.page,
@@ -83,6 +83,6 @@ export const newsApiSource: NewsSource = {
       `${PROVIDER_ROUTES.newsapi.basePath}/everything${qs}`,
       signal,
     );
-    return articles.map((article) => toArticle(article, category));
+    return (articles ?? []).map((article) => toArticle(article, category));
   },
 };

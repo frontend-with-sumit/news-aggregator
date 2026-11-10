@@ -1,0 +1,25 @@
+.article-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6) var(--space-6);
+}
+
+@media (min-width: 40rem) {
+  .article-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 64rem) {
+  .article-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.article-list__empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+  padding: var(--space-8) var(--space-4);
+}

@@ -8,6 +8,28 @@
       content="News Aggregator: search and personalise news from multiple sources."
     />
     <title>News Aggregator</title>
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('news-aggregator:theme');
+          var theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+          document.documentElement.dataset.theme = theme;
+        } catch {
+          /* localStorage unavailable; the CSS prefers-color-scheme fallback still applies. */
+        }
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="root"></div>

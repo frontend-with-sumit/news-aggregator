@@ -57,6 +57,8 @@ export const guardianSource: NewsSource = {
   async search(query: ArticleQuery, signal: AbortSignal): Promise<Article[]> {
     const qs = buildQueryString({
       q: query.keyword,
+      // Without this, `q` matches the full article body too; restrict it to the headline.
+      'query-fields': query.keyword ? 'headline' : undefined,
       section: query.category ? CATEGORY_TO_SECTION[query.category] : undefined,
       'from-date': query.from,
       'to-date': query.to,
@@ -68,6 +70,6 @@ export const guardianSource: NewsSource = {
       `${PROVIDER_ROUTES.guardian.basePath}/search${qs}`,
       signal,
     );
-    return response.results.map(toArticle);
+    return (response.results ?? []).map(toArticle);
   },
 };

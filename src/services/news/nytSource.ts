@@ -25,21 +25,24 @@ interface NytDoc {
   pub_date: string;
   byline?: { original?: string };
   section_name?: string;
-  multimedia?: { url: string }[];
+  // The NYT API serves this as a `{ default, thumbnail }` object with already-absolute
+  // static01.nyt.com URLs, not the older flat array of relative paths.
+  multimedia?: { default?: { url: string }; thumbnail?: { url: string } };
 }
 
 interface NytResponse {
-  response: { docs: NytDoc[] };
+  // NYT serves `docs: null` (not `[]`) whenever a query matches zero results.
+  response: { docs: NytDoc[] | null };
 }
 
 function toArticle(doc: NytDoc): Article {
-  const image = doc.multimedia?.[0]?.url;
+  const image = doc.multimedia?.default?.url ?? doc.multimedia?.thumbnail?.url;
   return {
     id: `nyt:${doc._id}`,
     title: doc.headline.main,
     summary: doc.abstract,
     url: doc.web_url,
-    imageUrl: image ? `https://www.nytimes.com/${image}` : undefined,
+    imageUrl: image,
     author: doc.byline?.original,
     publishedAt: doc.pub_date,
     source: 'nyt',
@@ -53,9 +56,15 @@ export const nytSource: NewsSource = {
 
   async search(query: ArticleQuery, signal: AbortSignal): Promise<Article[]> {
     const section = query.category ? CATEGORY_TO_SECTION[query.category] : undefined;
+    // NYT's `fq` filter parameter does not reliably return results against the live
+    // API (verified directly: even NYT's own documented fq examples return zero hits),
+    // and a zero-hit response serves `response.docs: null` rather than `[]`. So neither
+    // the category nor the headline-only keyword match can be done via `fq`; both are
+    // applied client-side against a plain `q` (or `sort=newest` when there's no
+    // keyword) search instead.
     const qs = buildQueryString({
-      q: query.keyword,
-      fq: section ? `section_name:("${section}")` : undefined,
+      q: query.keyword || undefined,
+      sort: query.keyword ? undefined : 'newest',
       begin_date: query.from ? toCompactDate(query.from) : undefined,
       end_date: query.to ? toCompactDate(query.to) : undefined,
       // NYT paginates 0-indexed, 10 results per page, while our ArticleQuery is 1-indexed.
@@ -65,6 +74,12 @@ export const nytSource: NewsSource = {
       `${PROVIDER_ROUTES.nyt.basePath}/search/v2/articlesearch.json${qs}`,
       signal,
     );
-    return response.docs.map(toArticle);
+    const keyword = query.keyword?.toLowerCase();
+    const docs = (response.docs ?? []).filter((doc) => {
+      const matchesKeyword = !keyword || doc.headline.main.toLowerCase().includes(keyword);
+      const matchesSection = !section || doc.section_name === section;
+      return matchesKeyword && matchesSection;
+    });
+    return docs.map(toArticle);
   },
 };

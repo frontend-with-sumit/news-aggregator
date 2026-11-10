@@ -35,7 +35,7 @@ describe('newsApi.searchArticles', () => {
             docs: [
               {
                 _id: 'newer',
-                headline: { main: 'NYT newer' },
+                headline: { main: 'Climate talks: NYT newer' },
                 abstract: 'abstract',
                 web_url: 'https://nytimes.com/newer',
                 pub_date: '2026-06-01T00:00:00Z',
@@ -50,7 +50,7 @@ describe('newsApi.searchArticles', () => {
     const result = await store.dispatch(
       newsApi.endpoints.searchArticles.initiate({
         keyword: 'climate',
-        category: null,
+        categories: [],
         sources: ['guardian', 'nyt'],
         page: 1,
       }),
@@ -87,7 +87,7 @@ describe('newsApi.searchArticles', () => {
     const result = await store.dispatch(
       newsApi.endpoints.searchArticles.initiate({
         keyword: '',
-        category: null,
+        categories: [],
         sources: ['guardian', 'nyt'],
         page: 1,
       }),
@@ -106,7 +106,7 @@ describe('newsApi.searchArticles', () => {
     const result = await store.dispatch(
       newsApi.endpoints.searchArticles.initiate({
         keyword: '',
-        category: null,
+        categories: [],
         sources: ['guardian'],
         page: 1,
       }),
@@ -128,10 +128,102 @@ describe('newsApi.searchArticles', () => {
     await store.dispatch(
       newsApi.endpoints.searchArticles.initiate({
         keyword: '',
-        category: null,
+        categories: [],
         sources: ['guardian'],
         page: 3,
       }),
     );
+  });
+
+  it('groups results by category, most-recently-selected category first, overriding date order', async () => {
+    server.use(
+      http.get('/api/guardian/search', ({ request }) => {
+        const section = new URL(request.url).searchParams.get('section');
+        if (section === 'world') {
+          return HttpResponse.json({
+            response: {
+              results: [
+                {
+                  id: 'world/newer',
+                  webTitle: 'World, newer',
+                  webUrl: 'https://theguardian.com/world',
+                  webPublicationDate: '2026-06-01T00:00:00Z',
+                  sectionId: 'world',
+                },
+              ],
+            },
+          });
+        }
+        return HttpResponse.json({
+          response: {
+            results: [
+              {
+                id: 'technology/older',
+                webTitle: 'Technology, older',
+                webUrl: 'https://theguardian.com/technology',
+                webPublicationDate: '2026-01-01T00:00:00Z',
+                sectionId: 'technology',
+              },
+            ],
+          },
+        });
+      }),
+    );
+
+    const store = createTestStore();
+    // 'world' was selected first, 'technology' second (most recent).
+    const result = await store.dispatch(
+      newsApi.endpoints.searchArticles.initiate({
+        keyword: '',
+        categories: ['world', 'technology'],
+        sources: ['guardian'],
+        page: 1,
+      }),
+    );
+
+    // The 'technology' group comes first even though its article is older, because
+    // it was the more recently selected category.
+    expect(result.data?.articles.map((article) => article.id)).toEqual([
+      'guardian:technology/older',
+      'guardian:world/newer',
+    ]);
+  });
+
+  it('dedupes an article that surfaces under more than one selected category', async () => {
+    server.use(
+      http.get('/api/guardian/search', ({ request }) => {
+        const section = new URL(request.url).searchParams.get('section');
+        return HttpResponse.json({
+          response: {
+            results: [
+              {
+                id: 'shared/article',
+                webTitle: section === 'world' ? 'Seen via world' : 'Seen via general',
+                webUrl: 'https://theguardian.com/shared',
+                webPublicationDate: '2026-01-01T00:00:00Z',
+                sectionId: 'world',
+              },
+            ],
+          },
+        });
+      }),
+    );
+
+    const store = createTestStore();
+    // 'general' (no section filter) selected first, 'world' selected second (most recent).
+    const result = await store.dispatch(
+      newsApi.endpoints.searchArticles.initiate({
+        keyword: '',
+        categories: ['general', 'world'],
+        sources: ['guardian'],
+        page: 1,
+      }),
+    );
+
+    expect(result.data?.articles).toHaveLength(1);
+    expect(result.data?.articles[0]).toMatchObject({
+      id: 'guardian:shared/article',
+      title: 'Seen via world',
+    });
   });
 });

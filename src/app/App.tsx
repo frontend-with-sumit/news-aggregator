@@ -1,7 +1,5 @@
+import { SearchResultsPage } from '@/features/search/pages/SearchResultsPage';
+
 export function App() {
-  return (
-    <main>
-      <h1>News Aggregator</h1>
-    </main>
-  );
+  return <SearchResultsPage />;
 }

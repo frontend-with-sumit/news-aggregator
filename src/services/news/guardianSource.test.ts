@@ -7,7 +7,9 @@ describe('guardianSource', () => {
   it('maps a search response into Articles', async () => {
     server.use(
       http.get('/api/guardian/search', ({ request }) => {
-        expect(new URL(request.url).searchParams.get('q')).toBe('climate');
+        const params = new URL(request.url).searchParams;
+        expect(params.get('q')).toBe('climate');
+        expect(params.get('query-fields')).toBe('headline');
         return HttpResponse.json({
           response: {
             results: [
@@ -48,6 +50,8 @@ describe('guardianSource', () => {
   it('throws on a non-OK response', async () => {
     server.use(http.get('/api/guardian/search', () => new HttpResponse(null, { status: 500 })));
 
-    await expect(guardianSource.search({ page: 1 }, new AbortController().signal)).rejects.toThrow('500');
+    await expect(guardianSource.search({ page: 1 }, new AbortController().signal)).rejects.toThrow(
+      '500',
+    );
   });
 });

@@ -19,7 +19,10 @@ describe('nytSource', () => {
                 pub_date: '2026-11-01T00:00:00Z',
                 byline: { original: 'By A Writer' },
                 section_name: 'Technology',
-                multimedia: [{ url: 'images/1.jpg' }],
+                multimedia: {
+                  default: { url: 'https://static01.nyt.com/images/1-articleLarge.jpg' },
+                  thumbnail: { url: 'https://static01.nyt.com/images/1-thumbStandard.jpg' },
+                },
               },
             ],
           },
@@ -35,12 +38,74 @@ describe('nytSource', () => {
         title: 'A headline',
         summary: 'An abstract',
         url: 'https://nytimes.com/1',
-        imageUrl: 'https://www.nytimes.com/images/1.jpg',
+        imageUrl: 'https://static01.nyt.com/images/1-articleLarge.jpg',
         author: 'By A Writer',
         publishedAt: '2026-11-01T00:00:00Z',
         source: 'nyt',
         category: 'technology',
       },
     ]);
+  });
+
+  it('matches the keyword against the headline and the category client-side (NYT fq does not work)', async () => {
+    server.use(
+      http.get('/api/nyt/search/v2/articlesearch.json', ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        expect(params.get('q')).toBe('climate');
+        expect(params.get('fq')).toBeNull();
+        return HttpResponse.json({
+          response: {
+            docs: [
+              {
+                _id: 'matches',
+                headline: { main: 'Climate talks begin' },
+                abstract: '',
+                web_url: 'https://nytimes.com/matches',
+                pub_date: '2026-11-01T00:00:00Z',
+                section_name: 'World',
+              },
+              {
+                _id: 'wrong-section',
+                headline: { main: 'Climate talks begin' },
+                abstract: '',
+                web_url: 'https://nytimes.com/wrong-section',
+                pub_date: '2026-11-01T00:00:00Z',
+                section_name: 'Business',
+              },
+              {
+                _id: 'wrong-headline',
+                headline: { main: 'Unrelated story' },
+                abstract: 'mentions climate deep in the body only',
+                web_url: 'https://nytimes.com/wrong-headline',
+                pub_date: '2026-11-01T00:00:00Z',
+                section_name: 'World',
+              },
+            ],
+          },
+        });
+      }),
+    );
+
+    const articles = await nytSource.search(
+      { keyword: 'climate', category: 'world', page: 1 },
+      new AbortController().signal,
+    );
+
+    expect(articles.map((article) => article.id)).toEqual(['nyt:matches']);
+  });
+
+  it('treats a null docs response (NYT returns this on zero hits) as an empty result', async () => {
+    server.use(
+      http.get('/api/nyt/search/v2/articlesearch.json', () =>
+        HttpResponse.json({ response: { docs: null } }),
+      ),
+    );
+
+    const articles = await nytSource.search(
+      { keyword: 'climate', page: 1 },
+      new AbortController().signal,
+    );
+
+    expect(articles).toEqual([]);
   });
 });
