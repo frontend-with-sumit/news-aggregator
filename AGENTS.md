@@ -61,9 +61,6 @@ Stored in `docs/specs/`. Format: `docs/specs/NNNN-title.md` (a single file, or a
 - [vitest](.agents/skills/vitest/): `antfu/skills`, this project's test runner
 - [vercel-react-best-practices](.agents/skills/vercel-react-best-practices/): `vercel-labs/agent-skills`, React 19 conventions
 
-`react-router-declarative-mode` is installed but unused (`react-router-dom` was dropped with
-the article detail page); remove with `npx skills remove react-router-declarative-mode` if routing won't return.
-
 Declined: MCP servers (no official server exists for this stack; only unverified third-party options found).
 
 ## Context files
