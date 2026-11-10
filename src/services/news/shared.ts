@@ -9,8 +9,13 @@ export function buildQueryString(params: Record<string, string | number | undefi
   return qs ? `?${qs}` : '';
 }
 
+export const RATE_LIMIT_MESSAGE = "Temporarily rate limited, try again shortly.";
+
 export async function fetchJson<T>(url: string, signal: AbortSignal): Promise<T> {
   const response = await fetch(url, { signal });
+  if (response.status === 429) {
+    throw new Error(RATE_LIMIT_MESSAGE);
+  }
   if (!response.ok) {
     throw new Error(`Request to ${url} failed with status ${response.status}`);
   }

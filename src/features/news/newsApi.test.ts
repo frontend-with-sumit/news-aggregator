@@ -139,28 +139,22 @@ describe('newsApi.searchArticles', () => {
     );
   });
 
-  it('groups results by category, most-recently-selected category first, overriding date order', async () => {
+  it("groups results by each article's own category, most-recently-selected category first, overriding date order (AC-2, AC-3)", async () => {
+    let requestCount = 0;
     server.use(
       http.get('/api/guardian/search', ({ request }) => {
-        const section = new URL(request.url).searchParams.get('section');
-        if (section === 'world') {
-          return HttpResponse.json({
-            response: {
-              results: [
-                {
-                  id: 'world/newer',
-                  webTitle: 'World, newer',
-                  webUrl: 'https://theguardian.com/world',
-                  webPublicationDate: '2026-06-01T00:00:00Z',
-                  sectionId: 'world',
-                },
-              ],
-            },
-          });
-        }
+        requestCount += 1;
+        expect(new URL(request.url).searchParams.get('section')).toBe('world|technology');
         return HttpResponse.json({
           response: {
             results: [
+              {
+                id: 'world/newer',
+                webTitle: 'World, newer',
+                webUrl: 'https://theguardian.com/world',
+                webPublicationDate: '2026-06-01T00:00:00Z',
+                sectionId: 'world',
+              },
               {
                 id: 'technology/older',
                 webTitle: 'Technology, older',
@@ -186,6 +180,8 @@ describe('newsApi.searchArticles', () => {
       }),
     );
 
+    // Guardian is asked once, with both sections joined (AC-5), not once per category.
+    expect(requestCount).toBe(1);
     // The 'technology' group comes first even though its article is older, because
     // it was the more recently selected category.
     expect(result.data?.articles.map((article) => article.id)).toEqual([
@@ -194,28 +190,27 @@ describe('newsApi.searchArticles', () => {
     ]);
   });
 
-  it('dedupes an article that surfaces under more than one selected category', async () => {
+  it('dedupes an article that surfaces under more than one selected category (AC-4)', async () => {
     server.use(
-      http.get('/api/guardian/search', ({ request }) => {
-        const section = new URL(request.url).searchParams.get('section');
-        return HttpResponse.json({
+      http.get('/api/guardian/search', () =>
+        HttpResponse.json({
           response: {
             results: [
               {
                 id: 'shared/article',
-                webTitle: section === 'world' ? 'Seen via world' : 'Seen via general',
+                webTitle: 'Seen via world',
                 webUrl: 'https://theguardian.com/shared',
                 webPublicationDate: '2026-01-01T00:00:00Z',
                 sectionId: 'world',
               },
             ],
           },
-        });
-      }),
+        }),
+      ),
     );
 
     const store = createTestStore();
-    // 'general' (no section filter) selected first, 'world' selected second (most recent).
+    // 'general' (no filter, catch-all) selected first, 'world' selected second (most recent).
     const result = await store.dispatch(
       newsApi.endpoints.searchArticles.initiate({
         keyword: '',
@@ -230,6 +225,70 @@ describe('newsApi.searchArticles', () => {
     expect(result.data?.articles[0]).toMatchObject({
       id: 'guardian:shared/article',
       title: 'Seen via world',
+    });
+  });
+
+  it("the 'general' group catches every article not claimed by a more recently selected category (AC-1, AC-4)", async () => {
+    server.use(
+      http.get('/api/guardian/search', () =>
+        HttpResponse.json({
+          response: {
+            results: [
+              {
+                id: 'business/article',
+                webTitle: 'Business story',
+                webUrl: 'https://theguardian.com/business',
+                webPublicationDate: '2026-01-01T00:00:00Z',
+                sectionId: 'business',
+              },
+              {
+                id: 'science/article',
+                webTitle: 'Science story',
+                webUrl: 'https://theguardian.com/science',
+                webPublicationDate: '2026-02-01T00:00:00Z',
+                sectionId: 'science',
+              },
+            ],
+          },
+        }),
+      ),
+    );
+
+    const store = createTestStore();
+    // 'general' selected most recently; it must still surface the unrelated 'science'
+    // article even though 'science' itself was never selected.
+    const result = await store.dispatch(
+      newsApi.endpoints.searchArticles.initiate({
+        keyword: '',
+        categories: ['business', 'general'],
+        author: '',
+        sources: ['guardian'],
+        page: 1,
+      }),
+    );
+
+    expect(result.data?.articles.map((article) => article.id)).toEqual([
+      'guardian:science/article',
+      'guardian:business/article',
+    ]);
+  });
+
+  it('shows a distinct rate-limit message, not the raw status text, on a 429 (AC-9)', async () => {
+    server.use(http.get('/api/guardian/search', () => new HttpResponse(null, { status: 429 })));
+
+    const store = createTestStore();
+    const result = await store.dispatch(
+      newsApi.endpoints.searchArticles.initiate({
+        keyword: '',
+        categories: [],
+        author: '',
+        sources: ['guardian'],
+        page: 1,
+      }),
+    );
+
+    expect(result.error).toMatchObject({
+      sourceErrors: [{ source: 'guardian', message: 'Temporarily rate limited, try again shortly.' }],
     });
   });
 });

@@ -44,7 +44,6 @@ function toErrorMessage(error: unknown): string {
 
 interface FetchResult {
   sourceId: SourceId;
-  category: Category | undefined;
   articles: Article[];
   errorMessage: string | null;
 }
@@ -55,62 +54,57 @@ export const newsApi = createApi({
   endpoints: (builder) => ({
     searchArticles: builder.query<SearchArticlesResult, SearchArticlesArgs>({
       async queryFn(args, { signal }) {
-        // undefined stands for "no category filter"; each adapter already treats a
-        // missing category the same as 'general' (no section/facet restriction).
-        const categoryGroups: (Category | undefined)[] =
-          args.categories.length > 0 ? args.categories : [undefined];
-
-        const fetches: Promise<FetchResult>[] = args.sources.flatMap((sourceId) =>
-          categoryGroups.map(async (category) => {
-            const query: ArticleQuery = {
-              keyword: args.keyword || undefined,
-              category,
-              from: args.from,
-              to: args.to,
-              page: args.page,
-            };
-            try {
-              const articles = await NEWS_SOURCES[sourceId].search(query, signal);
-              return { sourceId, category, articles, errorMessage: null };
-            } catch (error) {
-              return { sourceId, category, articles: [], errorMessage: toErrorMessage(error) };
-            }
-          }),
-        );
+        // Guardian and NYT each collapse every selected category into one request;
+        // NewsAPI's adapter applies its own per-category cap/fallback internally (see
+        // spec 0004). So every source is called exactly once per search, regardless of
+        // how many categories are selected.
+        const fetches: Promise<FetchResult>[] = args.sources.map(async (sourceId) => {
+          const query: ArticleQuery = {
+            keyword: args.keyword || undefined,
+            categories: args.categories,
+            from: args.from,
+            to: args.to,
+            page: args.page,
+          };
+          try {
+            const articles = await NEWS_SOURCES[sourceId].search(query, signal);
+            return { sourceId, articles, errorMessage: null };
+          } catch (error) {
+            return { sourceId, articles: [], errorMessage: toErrorMessage(error) };
+          }
+        });
 
         const results = await Promise.all(fetches);
 
-        // A source counts as failed only if every one of its category fetches failed;
-        // a failure for one selected category while another succeeds is tolerated.
-        const sourceErrors: SourceError[] = args.sources.flatMap((sourceId) => {
-          const forSource = results.filter((result) => result.sourceId === sourceId);
-          const firstError = forSource.find((result) => result.errorMessage !== null)?.errorMessage;
-          const allFailed =
-            forSource.length > 0 && forSource.every((result) => result.errorMessage !== null);
-          return allFailed && firstError ? [{ source: sourceId, message: firstError }] : [];
-        });
+        const sourceErrors: SourceError[] = results.flatMap((result) =>
+          result.errorMessage !== null ? [{ source: result.sourceId, message: result.errorMessage }] : [],
+        );
 
         if (args.sources.length > 0 && sourceErrors.length === args.sources.length) {
           return { error: { message: 'All selected sources failed', sourceErrors } };
         }
 
-        // Group by category, most-recently-selected category first (so toggling on a
-        // new category surfaces its articles at the top of the feed); newest-first
-        // within each group. Dedupe articles that surface under more than one
-        // category/source (e.g. the unfiltered 'general' fetch overlapping a specific
-        // category), keeping each one only in its highest-priority group.
+        // Group by each article's own category, most-recently-selected category first
+        // (so toggling on a new category surfaces its articles at the top of the
+        // feed); newest-first within each group. 'general' is a catch-all: it claims
+        // every article not already claimed by a higher-priority (more recently
+        // selected) group, regardless of that article's own category, rather than only
+        // articles literally tagged 'general'.
+        const groupOrder: (Category | 'general')[] =
+          args.categories.length > 0 ? [...args.categories].reverse() : ['general'];
+        const successfulArticles = results
+          .filter((result) => result.errorMessage === null)
+          .flatMap((result) => result.articles);
         const seenIds = new Set<string>();
         const articles: Article[] = [];
-        for (const category of [...categoryGroups].reverse()) {
-          const group = results
-            .filter((result) => result.category === category && result.errorMessage === null)
-            .flatMap((result) => result.articles)
-            .filter((article) => {
-              if (seenIds.has(article.id)) return false;
-              seenIds.add(article.id);
-              return true;
-            })
+        for (const category of groupOrder) {
+          const group = successfulArticles
+            .filter(
+              (article) =>
+                !seenIds.has(article.id) && (category === 'general' || article.category === category),
+            )
             .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+          for (const article of group) seenIds.add(article.id);
           articles.push(...group);
         }
 

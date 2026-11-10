@@ -55,7 +55,11 @@ export const nytSource: NewsSource = {
   label: 'The New York Times',
 
   async search(query: ArticleQuery, signal: AbortSignal): Promise<Article[]> {
-    const section = query.category ? CATEGORY_TO_SECTION[query.category] : undefined;
+    const categories = query.categories ?? [];
+    // 'general' always means no filter; NYT's own category matching is already
+    // client-side (see below), so one unfiltered request covers every selected
+    // category at once — no per-category request needed.
+    const matchesEveryCategory = categories.length === 0 || categories.includes('general');
     // NYT's `fq` filter parameter does not reliably return results against the live
     // API (verified directly: even NYT's own documented fq examples return zero hits),
     // and a zero-hit response serves `response.docs: null` rather than `[]`. So neither
@@ -77,8 +81,12 @@ export const nytSource: NewsSource = {
     const keyword = query.keyword?.toLowerCase();
     const docs = (response.docs ?? []).filter((doc) => {
       const matchesKeyword = !keyword || doc.headline.main.toLowerCase().includes(keyword);
-      const matchesSection = !section || doc.section_name === section;
-      return matchesKeyword && matchesSection;
+      if (!matchesKeyword) return false;
+      if (matchesEveryCategory) return true;
+      const mappedCategory: Category = doc.section_name
+        ? SECTION_TO_CATEGORY[doc.section_name] ?? 'general'
+        : 'general';
+      return categories.includes(mappedCategory);
     });
     return docs.map(toArticle);
   },
