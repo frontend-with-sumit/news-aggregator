@@ -38,7 +38,8 @@ export interface Article {
 
 export interface ArticleQuery {
   keyword?: string;
-  category?: Category;
+  /** Every selected category, oldest-selected to newest-selected. Empty/undefined means no filter. */
+  categories?: Category[];
   /** Restrict to these providers; empty or undefined means all. */
   sources?: readonly SourceId[];
   /** Inclusive date range, `YYYY-MM-DD`. */

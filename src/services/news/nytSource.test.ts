@@ -87,11 +87,86 @@ describe('nytSource', () => {
     );
 
     const articles = await nytSource.search(
-      { keyword: 'climate', category: 'world', page: 1 },
+      { keyword: 'climate', categories: ['world'], page: 1 },
       new AbortController().signal,
     );
 
     expect(articles.map((article) => article.id)).toEqual(['nyt:matches']);
+  });
+
+  it('fetches once and matches any of several selected categories client-side (AC-6)', async () => {
+    let requestCount = 0;
+    server.use(
+      http.get('/api/nyt/search/v2/articlesearch.json', () => {
+        requestCount += 1;
+        return HttpResponse.json({
+          response: {
+            docs: [
+              {
+                _id: 'world-doc',
+                headline: { main: 'World story' },
+                abstract: '',
+                web_url: 'https://nytimes.com/world',
+                pub_date: '2026-11-01T00:00:00Z',
+                section_name: 'World',
+              },
+              {
+                _id: 'tech-doc',
+                headline: { main: 'Tech story' },
+                abstract: '',
+                web_url: 'https://nytimes.com/tech',
+                pub_date: '2026-11-01T00:00:00Z',
+                section_name: 'Technology',
+              },
+              {
+                _id: 'business-doc',
+                headline: { main: 'Business story' },
+                abstract: '',
+                web_url: 'https://nytimes.com/business',
+                pub_date: '2026-11-01T00:00:00Z',
+                section_name: 'Business',
+              },
+            ],
+          },
+        });
+      }),
+    );
+
+    const articles = await nytSource.search(
+      { categories: ['world', 'technology'], page: 1 },
+      new AbortController().signal,
+    );
+
+    expect(requestCount).toBe(1);
+    expect(articles.map((article) => article.id).sort()).toEqual(['nyt:tech-doc', 'nyt:world-doc']);
+  });
+
+  it("does not filter by category at all when 'general' is among the selected categories", async () => {
+    server.use(
+      http.get('/api/nyt/search/v2/articlesearch.json', () =>
+        HttpResponse.json({
+          response: {
+            docs: [
+              {
+                _id: 'business-doc',
+                headline: { main: 'Business story' },
+                abstract: '',
+                web_url: 'https://nytimes.com/business',
+                pub_date: '2026-11-01T00:00:00Z',
+                section_name: 'Business',
+              },
+            ],
+          },
+        }),
+      ),
+    );
+
+    const articles = await nytSource.search(
+      { categories: ['general', 'world'], page: 1 },
+      new AbortController().signal,
+    );
+
+    expect(articles.map((article) => article.id)).toEqual(['nyt:business-doc']);
   });
 
   it('treats a null docs response (NYT returns this on zero hits) as an empty result', async () => {

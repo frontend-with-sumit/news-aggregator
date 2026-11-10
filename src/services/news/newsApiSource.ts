@@ -32,6 +32,11 @@ interface NewsApiResponse {
   articles: NewsApiArticle[];
 }
 
+/** NewsAPI's `category` param only accepts one value; above this many selected
+ *  categories it isn't worth one request each, so we fall back to a single
+ *  unfiltered request instead (see spec 0004). */
+const CATEGORY_CAP = 3;
+
 function toArticle(article: NewsApiArticle, category: Category): Article {
   return {
     id: `newsapi:${article.url}`,
@@ -46,43 +51,77 @@ function toArticle(article: NewsApiArticle, category: Category): Article {
   };
 }
 
+async function searchOneCategory(
+  query: ArticleQuery,
+  category: Category,
+  signal: AbortSignal,
+): Promise<Article[]> {
+  // /top-headlines supports a category filter but no date range and no title-only
+  // matching; /everything is the reverse. Prefer top-headlines only for a pure
+  // category browse (no keyword): once a keyword is given, /everything's `qInTitle`
+  // is the only way to match the headline instead of the full article body.
+  const useTopHeadlines = !query.from && !query.to && !query.keyword;
+
+  if (useTopHeadlines) {
+    const qs = buildQueryString({
+      category: CATEGORY_TO_TOP_HEADLINES_CATEGORY[category],
+      page: query.page,
+      pageSize: 20,
+    });
+    const { articles } = await fetchJson<NewsApiResponse>(
+      `${PROVIDER_ROUTES.newsapi.basePath}/top-headlines${qs}`,
+      signal,
+    );
+    return (articles ?? []).map((article) => toArticle(article, category));
+  }
+
+  const qs = buildQueryString({
+    qInTitle: query.keyword || category,
+    from: query.from,
+    to: query.to,
+    page: query.page,
+    pageSize: 20,
+    sortBy: 'publishedAt',
+  });
+  const { articles } = await fetchJson<NewsApiResponse>(
+    `${PROVIDER_ROUTES.newsapi.basePath}/everything${qs}`,
+    signal,
+  );
+  return (articles ?? []).map((article) => toArticle(article, category));
+}
+
 export const newsApiSource: NewsSource = {
   id: 'newsapi',
   label: 'NewsAPI',
 
   async search(query: ArticleQuery, signal: AbortSignal): Promise<Article[]> {
-    const category = query.category ?? 'general';
-    // /top-headlines supports a category filter but no date range and no title-only
-    // matching; /everything is the reverse. Prefer top-headlines only for a pure
-    // category browse (no keyword): once a keyword is given, /everything's `qInTitle`
-    // is the only way to match the headline instead of the full article body.
-    const useTopHeadlines = Boolean(query.category) && !query.from && !query.to && !query.keyword;
+    const categories = query.categories ?? [];
+    // 'general' always means no filter, and NewsAPI has no multi-category request
+    // shape, so both "general selected" and "more than the cap selected" fall back
+    // to one broad, unfiltered request instead of one per category.
+    const useFallback =
+      categories.length === 0 || categories.includes('general') || categories.length > CATEGORY_CAP;
 
-    if (useTopHeadlines) {
+    if (useFallback) {
+      const fallbackCategory: Category = categories.length > 0 ? categories[categories.length - 1]! : 'general';
       const qs = buildQueryString({
-        category: CATEGORY_TO_TOP_HEADLINES_CATEGORY[category],
+        qInTitle: query.keyword || undefined,
+        from: query.from,
+        to: query.to,
         page: query.page,
         pageSize: 20,
+        sortBy: 'publishedAt',
       });
       const { articles } = await fetchJson<NewsApiResponse>(
-        `${PROVIDER_ROUTES.newsapi.basePath}/top-headlines${qs}`,
+        `${PROVIDER_ROUTES.newsapi.basePath}/everything${qs}`,
         signal,
       );
-      return (articles ?? []).map((article) => toArticle(article, category));
+      return (articles ?? []).map((article) => toArticle(article, fallbackCategory));
     }
 
-    const qs = buildQueryString({
-      qInTitle: query.keyword || category,
-      from: query.from,
-      to: query.to,
-      page: query.page,
-      pageSize: 20,
-      sortBy: 'publishedAt',
-    });
-    const { articles } = await fetchJson<NewsApiResponse>(
-      `${PROVIDER_ROUTES.newsapi.basePath}/everything${qs}`,
-      signal,
+    const batches = await Promise.all(
+      categories.map((category) => searchOneCategory(query, category, signal)),
     );
-    return (articles ?? []).map((article) => toArticle(article, category));
+    return batches.flat();
   },
 };

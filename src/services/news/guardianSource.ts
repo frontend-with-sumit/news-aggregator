@@ -55,11 +55,19 @@ export const guardianSource: NewsSource = {
   label: 'The Guardian',
 
   async search(query: ArticleQuery, signal: AbortSignal): Promise<Article[]> {
+    const categories = query.categories ?? [];
+    // 'general' always means no filter; Guardian can join every other selected
+    // category's section into one request with '|' instead of one request each.
+    const sections = categories.includes('general')
+      ? []
+      : categories
+          .map((category) => CATEGORY_TO_SECTION[category])
+          .filter((section): section is string => Boolean(section));
     const qs = buildQueryString({
       q: query.keyword,
       // Without this, `q` matches the full article body too; restrict it to the headline.
       'query-fields': query.keyword ? 'headline' : undefined,
-      section: query.category ? CATEGORY_TO_SECTION[query.category] : undefined,
+      section: sections.length > 0 ? sections.join('|') : undefined,
       'from-date': query.from,
       'to-date': query.to,
       page: query.page,

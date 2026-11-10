@@ -4,7 +4,7 @@ import { server } from '../../test/server';
 import { newsApiSource } from './newsApiSource';
 
 describe('newsApiSource', () => {
-  it('uses top-headlines when a category is given with no date range', async () => {
+  it('uses top-headlines when a single category is given with no date range', async () => {
     server.use(
       http.get('/api/newsapi/top-headlines', ({ request }) => {
         expect(new URL(request.url).searchParams.get('category')).toBe('science');
@@ -25,7 +25,7 @@ describe('newsApiSource', () => {
     );
 
     const articles = await newsApiSource.search(
-      { category: 'science', page: 1 },
+      { categories: ['science'], page: 1 },
       new AbortController().signal,
     );
 
@@ -53,7 +53,7 @@ describe('newsApiSource', () => {
     );
 
     await newsApiSource.search(
-      { category: 'science', from: '2026-01-01', page: 1 },
+      { categories: ['science'], from: '2026-01-01', page: 1 },
       new AbortController().signal,
     );
   });
@@ -69,8 +69,78 @@ describe('newsApiSource', () => {
     );
 
     await newsApiSource.search(
-      { keyword: 'climate', category: 'science', page: 1 },
+      { keyword: 'climate', categories: ['science'], page: 1 },
       new AbortController().signal,
     );
+  });
+
+  it('issues one request per selected category when 3 or fewer are selected (AC-7)', async () => {
+    const requestedCategories: string[] = [];
+    server.use(
+      http.get('/api/newsapi/top-headlines', ({ request }) => {
+        const category = new URL(request.url).searchParams.get('category');
+        requestedCategories.push(category ?? '');
+        return HttpResponse.json({ articles: [] });
+      }),
+    );
+
+    await newsApiSource.search(
+      { categories: ['science', 'business', 'sports'], page: 1 },
+      new AbortController().signal,
+    );
+
+    expect(requestedCategories.sort()).toEqual(['business', 'science', 'sports']);
+  });
+
+  it('falls back to one unfiltered request beyond the cap of 3 categories (AC-7, AC-8)', async () => {
+    let requestCount = 0;
+    server.use(
+      http.get('/api/newsapi/everything', ({ request }) => {
+        requestCount += 1;
+        const params = new URL(request.url).searchParams;
+        expect(params.get('qInTitle')).toBeNull();
+        return HttpResponse.json({
+          articles: [
+            {
+              source: { id: 'wired', name: 'Wired' },
+              author: null,
+              title: 'A title',
+              description: null,
+              url: 'https://example.com/fallback',
+              urlToImage: null,
+              publishedAt: '2026-11-01T00:00:00Z',
+            },
+          ],
+        });
+      }),
+      http.get('/api/newsapi/top-headlines', () => HttpResponse.json({ articles: [] })),
+    );
+
+    const categories = ['science', 'business', 'sports', 'health', 'technology'] as const;
+    const articles = await newsApiSource.search(
+      { categories: [...categories], page: 1 },
+      new AbortController().signal,
+    );
+
+    expect(requestCount).toBe(1);
+    // Tagged with the last (most recently selected) category, not dropped or split.
+    expect(articles).toEqual([expect.objectContaining({ category: 'technology' })]);
+  });
+
+  it("falls back to one unfiltered request when 'general' is among the selected categories", async () => {
+    let requestCount = 0;
+    server.use(
+      http.get('/api/newsapi/everything', () => {
+        requestCount += 1;
+        return HttpResponse.json({ articles: [] });
+      }),
+    );
+
+    await newsApiSource.search(
+      { categories: ['business', 'general'], page: 1 },
+      new AbortController().signal,
+    );
+
+    expect(requestCount).toBe(1);
   });
 });
