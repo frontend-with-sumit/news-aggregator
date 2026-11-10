@@ -1,0 +1,57 @@
+# Production reverse proxy + static file server (docs/specs/0001-news-api-proxy-architecture.md).
+# Processed by the official nginx image's built-in envsubst entrypoint at container start
+# (/etc/nginx/templates/*.template -> /etc/nginx/conf.d/*.conf); only the ${...} tokens below
+# are substituted, nginx's own $variables are left alone.
+#
+# Route-to-key mapping mirrors vite.proxy.ts / src/services/news/providerRoutes.ts exactly, so
+# adapters call the same relative paths in dev and production.
+
+# Computes whether the forwarded query string needs a leading '&' before the injected api-key,
+# so a request with no other query params doesn't end up with a stray leading '&'.
+map $args $api_key_sep {
+    ""      "";
+    default "&";
+}
+
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    # Guardian: api-key as a query parameter.
+    location /api/guardian/ {
+        rewrite ^/api/guardian/(.*)$ /$1 break;
+        proxy_pass https://content.guardianapis.com;
+        proxy_set_header Host content.guardianapis.com;
+        proxy_ssl_server_name on;
+        set $args "${args}${api_key_sep}api-key=${GUARDIAN_API_KEY}";
+    }
+
+    # NYT: api-key as a query parameter.
+    location /api/nyt/ {
+        rewrite ^/api/nyt/(.*)$ /$1 break;
+        proxy_pass https://api.nytimes.com/svc;
+        proxy_set_header Host api.nytimes.com;
+        proxy_ssl_server_name on;
+        set $args "${args}${api_key_sep}api-key=${NYT_API_KEY}";
+    }
+
+    # NewsAPI: key as an X-Api-Key header, not a query parameter.
+    location /api/newsapi/ {
+        rewrite ^/api/newsapi/(.*)$ /$1 break;
+        proxy_pass https://newsapi.org/v2;
+        proxy_set_header Host newsapi.org;
+        proxy_ssl_server_name on;
+        proxy_set_header X-Api-Key ${NEWSAPI_API_KEY};
+    }
+
+    # Single-page app: serve the built static files, falling back to index.html.
+    location / {
+        try_files $uri /index.html;
+    }
+}
