@@ -95,13 +95,13 @@ describe('newsApiSource', () => {
   it('falls back to one unfiltered top-headlines request beyond the cap of 3 categories (AC-7, AC-8)', async () => {
     let requestCount = 0;
     server.use(
-      // /everything rejects a request with none of q/qInTitle/sources/domains set, so
-      // the no-keyword fallback has to go through /top-headlines instead (verified
-      // live against the real API).
+      // Neither endpoint accepts a bare request, so the no-keyword fallback goes
+      // through /top-headlines with category=general, the broadest NewsAPI allows
+      // (verified live against the real API).
       http.get('/api/newsapi/top-headlines', ({ request }) => {
         requestCount += 1;
         const params = new URL(request.url).searchParams;
-        expect(params.get('category')).toBeNull();
+        expect(params.get('category')).toBe('general');
         return HttpResponse.json({
           articles: [
             {
