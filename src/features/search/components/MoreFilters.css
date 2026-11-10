@@ -1,0 +1,37 @@
+.more-filters {
+  margin-bottom: var(--space-6);
+}
+
+.more-filters__summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--color-chip-bg);
+  color: var(--color-chip-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.more-filters__summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (min-width: 40rem) {
+  .more-filters__summary {
+    font-size: var(--text-sm);
+    min-height: var(--tap-target);
+    padding: 0 var(--space-4);
+  }
+}
+
+.more-filters__body {
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}

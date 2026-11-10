@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FiSearch } from 'react-icons/fi';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { selectActiveSearchParams, setKeyword } from '@/features/search/searchParamsSlice';
 import './SearchBar.css';
@@ -25,14 +26,17 @@ export function SearchBar() {
       <label className="search-bar__label" htmlFor="search-bar-input">
         Search articles
       </label>
-      <input
-        id="search-bar-input"
-        type="search"
-        className="search-bar__input"
-        placeholder="Search by keyword…"
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-      />
+      <div className="search-bar__field">
+        <FiSearch className="search-bar__icon" size={20} aria-hidden="true" />
+        <input
+          id="search-bar-input"
+          type="search"
+          className="search-bar__input"
+          placeholder="Search by keyword…"
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+        />
+      </div>
     </div>
   );
 }

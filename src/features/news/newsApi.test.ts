@@ -51,6 +51,7 @@ describe('newsApi.searchArticles', () => {
       newsApi.endpoints.searchArticles.initiate({
         keyword: 'climate',
         categories: [],
+        author: '',
         sources: ['guardian', 'nyt'],
         page: 1,
       }),
@@ -88,6 +89,7 @@ describe('newsApi.searchArticles', () => {
       newsApi.endpoints.searchArticles.initiate({
         keyword: '',
         categories: [],
+        author: '',
         sources: ['guardian', 'nyt'],
         page: 1,
       }),
@@ -107,6 +109,7 @@ describe('newsApi.searchArticles', () => {
       newsApi.endpoints.searchArticles.initiate({
         keyword: '',
         categories: [],
+        author: '',
         sources: ['guardian'],
         page: 1,
       }),
@@ -129,6 +132,7 @@ describe('newsApi.searchArticles', () => {
       newsApi.endpoints.searchArticles.initiate({
         keyword: '',
         categories: [],
+        author: '',
         sources: ['guardian'],
         page: 3,
       }),
@@ -176,6 +180,7 @@ describe('newsApi.searchArticles', () => {
       newsApi.endpoints.searchArticles.initiate({
         keyword: '',
         categories: ['world', 'technology'],
+        author: '',
         sources: ['guardian'],
         page: 1,
       }),
@@ -215,6 +220,7 @@ describe('newsApi.searchArticles', () => {
       newsApi.endpoints.searchArticles.initiate({
         keyword: '',
         categories: ['general', 'world'],
+        author: '',
         sources: ['guardian'],
         page: 1,
       }),

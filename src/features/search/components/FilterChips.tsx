@@ -1,4 +1,10 @@
-import { CATEGORIES, SOURCE_IDS, type Category, type SourceId } from '@/services/news';
+import {
+  CATEGORIES,
+  NEWS_SOURCES,
+  SOURCE_IDS,
+  type Category,
+  type SourceId,
+} from '@/services/news';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import {
   selectActivePreferences,
@@ -7,16 +13,16 @@ import {
 } from '@/features/preferences/preferencesSlice';
 import './FilterChips.css';
 
-function Chip<T extends string>({
+function Chip({
   label,
   active,
   disabled,
   onToggle,
 }: {
-  label: T;
+  label: string;
   active: boolean;
   disabled: boolean;
-  onToggle: (value: T) => void;
+  onToggle: () => void;
 }) {
   return (
     <button
@@ -24,7 +30,7 @@ function Chip<T extends string>({
       className="filter-chip"
       aria-pressed={active}
       disabled={disabled}
-      onClick={() => onToggle(label)}
+      onClick={onToggle}
     >
       {label}
     </button>
@@ -46,10 +52,10 @@ export function FilterChips() {
             return (
               <Chip
                 key={sourceId}
-                label={sourceId}
+                label={NEWS_SOURCES[sourceId].label}
                 active={active}
                 disabled={isLastSelected}
-                onToggle={(value) => dispatch(toggleSource(value))}
+                onToggle={() => dispatch(toggleSource(sourceId))}
               />
             );
           })}
@@ -67,7 +73,7 @@ export function FilterChips() {
                 label={category}
                 active={active}
                 disabled={isLastSelected}
-                onToggle={(value) => dispatch(toggleCategory(value))}
+                onToggle={() => dispatch(toggleCategory(category))}
               />
             );
           })}

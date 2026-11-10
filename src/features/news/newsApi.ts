@@ -20,6 +20,11 @@ export interface SearchArticlesArgs {
    */
   categories: Category[];
   sources: SourceId[];
+  /** Inclusive date range, `YYYY-MM-DD`. Either end may be omitted. */
+  from?: string;
+  to?: string;
+  /** Matched against `Article.author`, client-side: no provider supports this natively. */
+  author: string;
   page: number;
 }
 
@@ -60,6 +65,8 @@ export const newsApi = createApi({
             const query: ArticleQuery = {
               keyword: args.keyword || undefined,
               category,
+              from: args.from,
+              to: args.to,
               page: args.page,
             };
             try {
@@ -107,7 +114,14 @@ export const newsApi = createApi({
           articles.push(...group);
         }
 
-        return { data: { articles, sourceErrors } };
+        // Author personalization: no provider's query params reliably restrict results
+        // to one author, so it's applied client-side, same as NYT's headline matching.
+        const authorFilter = args.author.trim().toLowerCase();
+        const personalized = authorFilter
+          ? articles.filter((article) => article.author?.toLowerCase().includes(authorFilter))
+          : articles;
+
+        return { data: { articles: personalized, sourceErrors } };
       },
     }),
   }),
