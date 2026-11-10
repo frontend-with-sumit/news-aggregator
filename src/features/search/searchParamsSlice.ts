@@ -11,6 +11,11 @@ export interface SearchParamsState {
   /** Ordered oldest-selected to newest-selected, mirrored from preferences. */
   categories: Category[];
   sources: SourceId[];
+  /** Inclusive date range, `YYYY-MM-DD`. Either end may be omitted. */
+  from?: string;
+  to?: string;
+  /** Matched against `Article.author`, client-side (no provider supports this natively). */
+  author: string;
   page: number;
 }
 
@@ -19,6 +24,7 @@ function seedFromPreferences(preferences: PreferencesState): SearchParamsState {
     keyword: '',
     categories: preferences.preferredCategories,
     sources: preferences.preferredSources,
+    author: '',
     page: 1,
   };
 }
@@ -29,6 +35,15 @@ const searchParamsSlice = createSlice({
   reducers: {
     setKeyword(state, action: PayloadAction<string>) {
       state.keyword = action.payload;
+      state.page = 1;
+    },
+    setAuthor(state, action: PayloadAction<string>) {
+      state.author = action.payload;
+      state.page = 1;
+    },
+    setDateRange(state, action: PayloadAction<{ from?: string; to?: string }>) {
+      state.from = action.payload.from || undefined;
+      state.to = action.payload.to || undefined;
       state.page = 1;
     },
     setPage(state, action: PayloadAction<number>) {
@@ -42,7 +57,8 @@ const searchParamsSlice = createSlice({
   },
 });
 
-export const { setKeyword, setPage, syncFromPreferences } = searchParamsSlice.actions;
+export const { setKeyword, setAuthor, setDateRange, setPage, syncFromPreferences } =
+  searchParamsSlice.actions;
 export const searchParamsReducer = searchParamsSlice.reducer;
 
 export const selectActiveSearchParams = (state: RootState): SearchParamsState => state.searchParams;
