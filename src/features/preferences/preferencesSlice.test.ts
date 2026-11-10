@@ -3,6 +3,7 @@ import {
   PREFERENCES_STORAGE_KEY,
   preferencesReducer,
   readStoredPreferences,
+  setPreferredAuthor,
   toggleCategory,
   toggleSource,
   type PreferencesState,
@@ -11,6 +12,7 @@ import {
 const defaultState: PreferencesState = {
   preferredSources: ['guardian', 'nyt', 'newsapi'],
   preferredCategories: ['general'],
+  preferredAuthor: '',
 };
 
 describe('preferencesSlice', () => {
@@ -62,5 +64,21 @@ describe('preferencesSlice', () => {
     const next = preferencesReducer(defaultState, toggleCategory('general'));
 
     expect(next.preferredCategories).toEqual(['general']);
+  });
+
+  it('sets the preferred author and persists the change', () => {
+    const next = preferencesReducer(defaultState, setPreferredAuthor('Jane Doe'));
+
+    expect(next.preferredAuthor).toBe('Jane Doe');
+    expect(JSON.parse(localStorage.getItem(PREFERENCES_STORAGE_KEY)!)).toEqual(next);
+  });
+
+  it('falls back to the default preferences when the stored author is not a string', () => {
+    localStorage.setItem(
+      PREFERENCES_STORAGE_KEY,
+      JSON.stringify({ ...defaultState, preferredAuthor: 42 }),
+    );
+
+    expect(readStoredPreferences()).toEqual(defaultState);
   });
 });

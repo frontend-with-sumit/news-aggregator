@@ -3,6 +3,7 @@ import { newsApi } from '@/features/news/newsApi';
 import {
   preferencesReducer,
   selectActivePreferences,
+  setPreferredAuthor,
   toggleCategory,
   toggleSource,
   type PreferencesState,
@@ -31,7 +32,7 @@ export function createAppStore(preloadedState?: {
   });
 
   listenerMiddleware.startListening({
-    matcher: isAnyOf(toggleSource, toggleCategory),
+    matcher: isAnyOf(toggleSource, toggleCategory, setPreferredAuthor),
     effect: (_action, api) => {
       api.dispatch(
         syncFromPreferences(selectActivePreferences(api.getState() as ReturnType<typeof appStore.getState>)),

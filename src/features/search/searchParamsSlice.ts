@@ -24,7 +24,7 @@ function seedFromPreferences(preferences: PreferencesState): SearchParamsState {
     keyword: '',
     categories: preferences.preferredCategories,
     sources: preferences.preferredSources,
-    author: '',
+    author: preferences.preferredAuthor,
     page: 1,
   };
 }
@@ -35,10 +35,6 @@ const searchParamsSlice = createSlice({
   reducers: {
     setKeyword(state, action: PayloadAction<string>) {
       state.keyword = action.payload;
-      state.page = 1;
-    },
-    setAuthor(state, action: PayloadAction<string>) {
-      state.author = action.payload;
       state.page = 1;
     },
     setDateRange(state, action: PayloadAction<{ from?: string; to?: string }>) {
@@ -52,13 +48,13 @@ const searchParamsSlice = createSlice({
     syncFromPreferences(state, action: PayloadAction<PreferencesState>) {
       state.sources = action.payload.preferredSources;
       state.categories = action.payload.preferredCategories;
+      state.author = action.payload.preferredAuthor;
       state.page = 1;
     },
   },
 });
 
-export const { setKeyword, setAuthor, setDateRange, setPage, syncFromPreferences } =
-  searchParamsSlice.actions;
+export const { setKeyword, setDateRange, setPage, syncFromPreferences } = searchParamsSlice.actions;
 export const searchParamsReducer = searchParamsSlice.reducer;
 
 export const selectActiveSearchParams = (state: RootState): SearchParamsState => state.searchParams;

@@ -7,7 +7,11 @@ describe('FilterChips', () => {
   it('disables the last remaining selected source chip', () => {
     renderWithProviders(<FilterChips />, {
       preloadedState: {
-        preferences: { preferredSources: ['guardian'], preferredCategories: ['general'] },
+        preferences: {
+          preferredSources: ['guardian'],
+          preferredCategories: ['general'],
+          preferredAuthor: '',
+        },
         searchParams: {
           keyword: '',
           categories: ['general'],
