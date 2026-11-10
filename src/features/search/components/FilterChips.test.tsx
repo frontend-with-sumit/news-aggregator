@@ -8,18 +8,24 @@ describe('FilterChips', () => {
     renderWithProviders(<FilterChips />, {
       preloadedState: {
         preferences: { preferredSources: ['guardian'], preferredCategories: ['general'] },
-        searchParams: { keyword: '', categories: ['general'], sources: ['guardian'], page: 1 },
+        searchParams: {
+          keyword: '',
+          categories: ['general'],
+          sources: ['guardian'],
+          author: '',
+          page: 1,
+        },
       },
     });
 
-    expect(screen.getByRole('button', { name: 'guardian' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'The Guardian' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'general' })).toBeDisabled();
   });
 
   it('leaves non-last chips enabled', () => {
     renderWithProviders(<FilterChips />);
 
-    expect(screen.getByRole('button', { name: 'guardian' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'nyt' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'The Guardian' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'The New York Times' })).toBeEnabled();
   });
 });

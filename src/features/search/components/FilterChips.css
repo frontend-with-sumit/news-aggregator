@@ -1,7 +1,7 @@
 .filter-chips {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
   margin-bottom: var(--space-6);
 }
 
@@ -13,19 +13,38 @@
   margin-bottom: var(--space-2);
 }
 
+/* A horizontally scrollable single line on narrow screens (common mobile news-app
+   pattern, and keeps the full-name source/category chips from wrapping to several
+   rows), reverting to a wrapping row once there's room. */
 .filter-chips__row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   gap: var(--space-2);
+  padding-bottom: var(--space-1);
+  scrollbar-width: none;
+}
+
+.filter-chips__row::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 40rem) {
+  .filter-chips__row {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
 }
 
 .filter-chip {
+  flex: none;
   text-transform: capitalize;
-  font-size: var(--text-sm);
+  white-space: nowrap;
+  font-size: 0.8125rem;
   font-weight: 600;
   font-family: var(--font-sans);
-  padding: 0 var(--space-4);
-  min-height: var(--tap-target);
+  padding: 0 var(--space-3);
+  min-height: 2.25rem;
   border: none;
   border-radius: var(--radius-pill);
   background: var(--color-chip-bg);
@@ -35,6 +54,15 @@
     background-color 0.15s ease,
     color 0.15s ease,
     transform 0.1s ease;
+}
+
+/* Back to the full tap-target size once there's room for it. */
+@media (min-width: 40rem) {
+  .filter-chip {
+    font-size: var(--text-sm);
+    padding: 0 var(--space-4);
+    min-height: var(--tap-target);
+  }
 }
 
 .filter-chip:hover:not(:disabled) {
