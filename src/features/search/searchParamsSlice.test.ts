@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { PreferencesState } from '@/features/preferences/preferencesSlice';
 import {
   searchParamsReducer,
-  setAuthor,
   setDateRange,
   setKeyword,
   setPage,
@@ -23,13 +22,6 @@ describe('searchParamsSlice', () => {
     const next = searchParamsReducer(baseState, setKeyword('ai'));
 
     expect(next.keyword).toBe('ai');
-    expect(next.page).toBe(1);
-  });
-
-  it('resets the page when the author filter changes', () => {
-    const next = searchParamsReducer(baseState, setAuthor('Jane Doe'));
-
-    expect(next.author).toBe('Jane Doe');
     expect(next.page).toBe(1);
   });
 
@@ -60,16 +52,18 @@ describe('searchParamsSlice', () => {
     expect(next.keyword).toBe('climate');
   });
 
-  it('re-seeds sources and categories (in selection order) from an updated preferences state', () => {
+  it('re-seeds sources, categories (in selection order) and author from an updated preferences state', () => {
     const updatedPreferences: PreferencesState = {
       preferredSources: ['nyt', 'newsapi'],
       preferredCategories: ['sports', 'business'],
+      preferredAuthor: 'Jane Doe',
     };
 
     const next = searchParamsReducer(baseState, syncFromPreferences(updatedPreferences));
 
     expect(next.sources).toEqual(['nyt', 'newsapi']);
     expect(next.categories).toEqual(['sports', 'business']);
+    expect(next.author).toBe('Jane Doe');
     expect(next.page).toBe(1);
   });
 });

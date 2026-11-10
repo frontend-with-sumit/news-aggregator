@@ -7,11 +7,14 @@ export const PREFERENCES_STORAGE_KEY = 'news-aggregator:preferences';
 export interface PreferencesState {
   preferredSources: SourceId[];
   preferredCategories: Category[];
+  /** Matched against `Article.author`, client-side. Empty means no author filter. */
+  preferredAuthor: string;
 }
 
 const defaultPreferences: PreferencesState = {
   preferredSources: [...SOURCE_IDS],
   preferredCategories: ['general'],
+  preferredAuthor: '',
 };
 
 function isSourceIdArray(value: unknown): value is SourceId[] {
@@ -28,16 +31,17 @@ export function readStoredPreferences(): PreferencesState {
     if (!raw) return defaultPreferences;
 
     const parsed = JSON.parse(raw) as Partial<Record<keyof PreferencesState, unknown>>;
-    const { preferredSources, preferredCategories } = parsed;
+    const { preferredSources, preferredCategories, preferredAuthor } = parsed;
     if (
       !isSourceIdArray(preferredSources) ||
       preferredSources.length === 0 ||
       !isCategoryArray(preferredCategories) ||
-      preferredCategories.length === 0
+      preferredCategories.length === 0 ||
+      typeof preferredAuthor !== 'string'
     ) {
       return defaultPreferences;
     }
-    return { preferredSources, preferredCategories };
+    return { preferredSources, preferredCategories, preferredAuthor };
   } catch {
     return defaultPreferences;
   }
@@ -71,10 +75,14 @@ const preferencesSlice = createSlice({
       state.preferredCategories = next;
       persistPreferences(state);
     },
+    setPreferredAuthor(state, action: PayloadAction<string>) {
+      state.preferredAuthor = action.payload;
+      persistPreferences(state);
+    },
   },
 });
 
-export const { toggleSource, toggleCategory } = preferencesSlice.actions;
+export const { toggleSource, toggleCategory, setPreferredAuthor } = preferencesSlice.actions;
 export const preferencesReducer = preferencesSlice.reducer;
 
 export const selectActivePreferences = (state: RootState): PreferencesState => state.preferences;

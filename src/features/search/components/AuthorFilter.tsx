@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { selectActiveSearchParams, setAuthor } from '@/features/search/searchParamsSlice';
+import {
+  selectActivePreferences,
+  setPreferredAuthor,
+} from '@/features/preferences/preferencesSlice';
 import './AuthorFilter.css';
 
 const DEBOUNCE_MS = 400;
 
 export function AuthorFilter() {
   const dispatch = useAppDispatch();
-  const activeAuthor = useAppSelector((state) => selectActiveSearchParams(state).author);
-  const [text, setText] = useState(activeAuthor);
+  const preferredAuthor = useAppSelector((state) => selectActivePreferences(state).preferredAuthor);
+  const [text, setText] = useState(preferredAuthor);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (text !== activeAuthor) {
-        dispatch(setAuthor(text));
+      if (text !== preferredAuthor) {
+        dispatch(setPreferredAuthor(text));
       }
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
