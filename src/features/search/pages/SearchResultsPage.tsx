@@ -1,6 +1,7 @@
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useSearchArticlesQuery } from '@/features/news/newsApi';
 import { selectActiveSearchParams, setPage } from '@/features/search/searchParamsSlice';
+import { ThemeToggle } from '@/app/ThemeToggle';
 import { SearchBar } from '@/features/search/components/SearchBar';
 import { FilterChips } from '@/features/search/components/FilterChips';
 import { StatusBanner } from '@/features/search/components/StatusBanner';
@@ -14,12 +15,17 @@ export function SearchResultsPage() {
   const { data, error, isFetching } = useSearchArticlesQuery(searchParams);
 
   const articles = data?.articles ?? [];
-  const sourceErrors = data?.sourceErrors ?? (error && 'sourceErrors' in error ? error.sourceErrors : []);
+  const sourceErrors =
+    data?.sourceErrors ?? (error && 'sourceErrors' in error ? error.sourceErrors : []);
 
   return (
     <main className="search-results-page">
       <header className="search-results-page__header">
-        <h1>News Aggregator</h1>
+        <div className="search-results-page__heading">
+          <h1>News Aggregator</h1>
+          <span className="search-results-page__badge">Your sources, your topics</span>
+        </div>
+        <ThemeToggle />
       </header>
       <SearchBar />
       <FilterChips />

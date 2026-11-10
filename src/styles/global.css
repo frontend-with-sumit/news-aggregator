@@ -13,6 +13,22 @@ body {
   line-height: 1.5;
   color: var(--color-text);
   background: var(--color-bg);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+h1,
+h2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 img {
@@ -20,8 +36,12 @@ img {
   height: auto;
 }
 
+button {
+  font-family: inherit;
+}
+
 :focus-visible {
-  outline: 3px solid var(--color-primary);
+  outline: 3px solid var(--color-ink);
   outline-offset: 2px;
 }
 

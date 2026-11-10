@@ -1,13 +1,37 @@
-/* Design tokens. Mobile-first: base styles target small screens, media queries add layout. */
+/* Design tokens. Mobile-first: base styles target small screens, media queries add layout.
+   Warm editorial palette: cream paper, near-black ink, tan pills, a yellow accent for the
+   primary action and a lavender accent for highlight badges. Light is the default; dark
+   overrides apply when the reader's system prefers it, or when they pick dark explicitly
+   via the theme toggle (`data-theme`). */
 :root {
-  --color-bg: #f7f8fa;
+  --color-bg: #f8f3ea;
   --color-surface: #ffffff;
-  --color-text: #14181f;
-  --color-text-muted: #5b6575;
-  --color-border: #dde1e8;
-  --color-primary: #1f5eff;
-  --color-primary-contrast: #ffffff;
-  --color-danger: #c62828;
+  --color-surface-raised: #ffffff;
+  --color-ink: #16150f;
+  --color-text: #16150f;
+  --color-text-muted: #8a8372;
+  --color-border: #e9e0cd;
+
+  --color-chip-bg: #efe4cc;
+  --color-chip-text: #4a4536;
+  --color-chip-active-bg: #16150f;
+  --color-chip-active-text: #faf6ec;
+
+  --color-primary: #f4c430;
+  --color-primary-text: #16150f;
+  --color-accent: #c9bdfb;
+  --color-accent-text: #2c2350;
+
+  --color-badge-bg: #ffffff;
+  --color-badge-text: #16150f;
+
+  --color-danger: #b4232a;
+  --color-danger-bg: #fbeae7;
+  --color-danger-border: #f0c9c2;
+
+  --shadow-card: 0 1px 2px rgba(22, 21, 15, 0.04), 0 1px 3px rgba(22, 21, 15, 0.06);
+  --shadow-card-hover: 0 10px 24px rgba(22, 21, 15, 0.12), 0 2px 6px rgba(22, 21, 15, 0.08);
+  --shadow-pill: 0 1px 2px rgba(22, 21, 15, 0.12);
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -16,15 +40,84 @@
   --space-6: 1.5rem;
   --space-8: 2rem;
 
-  --radius-sm: 0.375rem;
-  --radius-md: 0.75rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
+  --radius-pill: 999px;
 
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --text-sm: 0.875rem;
   --text-base: 1rem;
   --text-lg: 1.25rem;
   --text-xl: 1.75rem;
+  --text-2xl: 2.5rem;
 
-  --content-max-width: 72rem;
+  --content-max-width: 78rem;
   --tap-target: 2.75rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-bg: #15130f;
+    --color-surface: #211e17;
+    --color-surface-raised: #2a261c;
+    --color-ink: #f6f1e4;
+    --color-text: #f6f1e4;
+    --color-text-muted: #a89d85;
+    --color-border: #3a3426;
+
+    --color-chip-bg: #2e2a1f;
+    --color-chip-text: #e4dcc6;
+    --color-chip-active-bg: #f6f1e4;
+    --color-chip-active-text: #15130f;
+
+    --color-primary: #f4c430;
+    --color-primary-text: #15130f;
+    --color-accent: #8f7ef0;
+    --color-accent-text: #faf8ff;
+
+    --color-badge-bg: #2a261c;
+    --color-badge-text: #f6f1e4;
+
+    --color-danger: #f0a39c;
+    --color-danger-bg: #3a211d;
+    --color-danger-border: #5c332c;
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.24);
+    --shadow-card-hover: 0 12px 28px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+    --shadow-pill: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #15130f;
+  --color-surface: #211e17;
+  --color-surface-raised: #2a261c;
+  --color-ink: #f6f1e4;
+  --color-text: #f6f1e4;
+  --color-text-muted: #a89d85;
+  --color-border: #3a3426;
+
+  --color-chip-bg: #2e2a1f;
+  --color-chip-text: #e4dcc6;
+  --color-chip-active-bg: #f6f1e4;
+  --color-chip-active-text: #15130f;
+
+  --color-primary: #f4c430;
+  --color-primary-text: #15130f;
+  --color-accent: #8f7ef0;
+  --color-accent-text: #faf8ff;
+
+  --color-badge-bg: #2a261c;
+  --color-badge-text: #f6f1e4;
+
+  --color-danger: #f0a39c;
+  --color-danger-bg: #3a211d;
+  --color-danger-border: #5c332c;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.24);
+  --shadow-card-hover: 0 12px 28px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-pill: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
