@@ -92,13 +92,16 @@ describe('newsApiSource', () => {
     expect(requestedCategories.sort()).toEqual(['business', 'science', 'sports']);
   });
 
-  it('falls back to one unfiltered request beyond the cap of 3 categories (AC-7, AC-8)', async () => {
+  it('falls back to one unfiltered top-headlines request beyond the cap of 3 categories (AC-7, AC-8)', async () => {
     let requestCount = 0;
     server.use(
-      http.get('/api/newsapi/everything', ({ request }) => {
+      // /everything rejects a request with none of q/qInTitle/sources/domains set, so
+      // the no-keyword fallback has to go through /top-headlines instead (verified
+      // live against the real API).
+      http.get('/api/newsapi/top-headlines', ({ request }) => {
         requestCount += 1;
         const params = new URL(request.url).searchParams;
-        expect(params.get('qInTitle')).toBeNull();
+        expect(params.get('category')).toBeNull();
         return HttpResponse.json({
           articles: [
             {
@@ -113,7 +116,7 @@ describe('newsApiSource', () => {
           ],
         });
       }),
-      http.get('/api/newsapi/top-headlines', () => HttpResponse.json({ articles: [] })),
+      http.get('/api/newsapi/everything', () => HttpResponse.json({ articles: [] })),
     );
 
     const categories = ['science', 'business', 'sports', 'health', 'technology'] as const;
@@ -127,10 +130,10 @@ describe('newsApiSource', () => {
     expect(articles).toEqual([expect.objectContaining({ category: 'technology' })]);
   });
 
-  it("falls back to one unfiltered request when 'general' is among the selected categories", async () => {
+  it("falls back to one unfiltered top-headlines request when 'general' is among the selected categories", async () => {
     let requestCount = 0;
     server.use(
-      http.get('/api/newsapi/everything', () => {
+      http.get('/api/newsapi/top-headlines', () => {
         requestCount += 1;
         return HttpResponse.json({ articles: [] });
       }),
@@ -142,5 +145,20 @@ describe('newsApiSource', () => {
     );
 
     expect(requestCount).toBe(1);
+  });
+
+  it('falls back to /everything with qInTitle when a keyword is given beyond the cap, satisfying its required params', async () => {
+    server.use(
+      http.get('/api/newsapi/everything', ({ request }) => {
+        expect(new URL(request.url).searchParams.get('qInTitle')).toBe('climate');
+        return HttpResponse.json({ articles: [] });
+      }),
+    );
+
+    const categories = ['science', 'business', 'sports', 'health'] as const;
+    await newsApiSource.search(
+      { keyword: 'climate', categories: [...categories], page: 1 },
+      new AbortController().signal,
+    );
   });
 });

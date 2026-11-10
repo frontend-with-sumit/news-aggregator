@@ -104,8 +104,24 @@ export const newsApiSource: NewsSource = {
 
     if (useFallback) {
       const fallbackCategory: Category = categories.length > 0 ? categories[categories.length - 1]! : 'general';
+
+      // /everything rejects a request with none of q/qInTitle/sources/domains set
+      // (verified live: "Required parameters are missing" from NewsAPI itself), so a
+      // genuinely unfiltered broad request has to go through /top-headlines instead,
+      // which has no such requirement; /everything is only usable here when there's a
+      // keyword to put in qInTitle. The tradeoff is /top-headlines has no date-range
+      // param, so from/to are not honored in the no-keyword fallback case.
+      if (!query.keyword) {
+        const qs = buildQueryString({ page: query.page, pageSize: 20 });
+        const { articles } = await fetchJson<NewsApiResponse>(
+          `${PROVIDER_ROUTES.newsapi.basePath}/top-headlines${qs}`,
+          signal,
+        );
+        return (articles ?? []).map((article) => toArticle(article, fallbackCategory));
+      }
+
       const qs = buildQueryString({
-        qInTitle: query.keyword || undefined,
+        qInTitle: query.keyword,
         from: query.from,
         to: query.to,
         page: query.page,
