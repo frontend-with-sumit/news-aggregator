@@ -1,14 +1,8 @@
-# Production reverse proxy + static file server (docs/specs/0001-news-api-proxy-architecture.md).
-# Processed by the official nginx image's built-in envsubst entrypoint at container start
-# (/etc/nginx/templates/*.template -> /etc/nginx/conf.d/*.conf); only the ${...} tokens below
-# are substituted, nginx's own $variables are left alone.
-#
-# Route-to-key mapping mirrors vite.proxy.ts / src/services/news/providerRoutes.ts exactly, so
-# adapters call the same relative paths in dev and production.
+# Reverse proxy + static file server (docs/specs/0001-news-api-proxy-architecture.md).
+# ${...} tokens are substituted via envsubst at container start; nginx's own $variables
+# are left alone. Route-to-key mapping mirrors providerRoutes.ts/vite.proxy.ts.
 
-# Computes whether the forwarded query string needs a leading '&' before the injected api-key,
-# so a request with no other query params doesn't end up with a stray leading '&'. Evaluated
-# against the ORIGINAL request $args (rewrite ... break below only ever touches $uri).
+# Leading '&' before the injected api-key, only when the request already has query params.
 map $args $api_key_sep {
     ""      "";
     default "&";
@@ -20,25 +14,16 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    # proxy_pass below embeds variables to build the forwarded query string, which makes
-    # nginx resolve each upstream host at request time rather than at config load time;
-    # that requires an explicit resolver (verified live: requests 502'd with "no resolver
-    # defined" without this). 127.0.0.11 is Docker's embedded DNS, available to every
-    # container on the default bridge network.
+    # Required because proxy_pass below uses variables, which resolves upstream hosts
+    # at request time; 127.0.0.11 is Docker's embedded DNS.
     resolver 127.0.0.11 valid=30s;
 
     gzip on;
     gzip_types text/css application/javascript application/json image/svg+xml;
     gzip_min_length 1024;
 
-    # Guardian: api-key as a query parameter.
-    #
-    # The query string is built explicitly into proxy_pass's own URI (rather than via
-    # `set $args`) because proxy_pass without a URI part forwards the client's original
-    # query string verbatim and ignores a later `set $args`, even after a `rewrite ...
-    # break` has changed $uri (verified against the live API: the key never arrived).
-    # Embedding $args/the key directly in proxy_pass's URI is the pattern that's actually
-    # honored.
+    # Query string is built into proxy_pass's URI directly, not via `set $args`: the
+    # latter is silently ignored when proxy_pass has no URI part of its own.
     location /api/guardian/ {
         rewrite ^/api/guardian/(.*)$ /$1 break;
         proxy_set_header Host content.guardianapis.com;
@@ -46,7 +31,6 @@ server {
         proxy_pass https://content.guardianapis.com$uri?$args${api_key_sep}api-key=${GUARDIAN_API_KEY};
     }
 
-    # NYT: api-key as a query parameter. Same pattern as Guardian above.
     location /api/nyt/ {
         rewrite ^/api/nyt/(.*)$ /$1 break;
         proxy_set_header Host api.nytimes.com;
@@ -54,8 +38,7 @@ server {
         proxy_pass https://api.nytimes.com/svc$uri?$args${api_key_sep}api-key=${NYT_API_KEY};
     }
 
-    # NewsAPI: key as an X-Api-Key header, not a query parameter, so the query string is
-    # forwarded unmodified.
+    # NewsAPI takes its key as a header, not a query parameter.
     location /api/newsapi/ {
         rewrite ^/api/newsapi/(.*)$ /$1 break;
         proxy_set_header Host newsapi.org;
@@ -64,7 +47,6 @@ server {
         proxy_pass https://newsapi.org/v2$uri?$args;
     }
 
-    # Single-page app: serve the built static files, falling back to index.html.
     location / {
         try_files $uri /index.html;
     }
