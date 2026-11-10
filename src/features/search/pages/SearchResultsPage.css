@@ -12,10 +12,11 @@
 
 .search-results-page__header {
   display: flex;
-  align-items: center;
+  flex-wrap: nowrap;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--space-6);
 }
 
 .search-results-page__heading {
@@ -23,10 +24,14 @@
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .search-results-page__header h1 {
-  font-size: var(--text-2xl);
+  /* Scales from ~28px on a narrow phone up to the full 40px on larger screens,
+     instead of jumping at a breakpoint or overflowing a small viewport. */
+  font-size: clamp(1.75rem, 5vw + 1rem, var(--text-2xl));
   text-transform: uppercase;
   margin: 0;
 }
