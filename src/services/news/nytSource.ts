@@ -25,7 +25,9 @@ interface NytDoc {
   pub_date: string;
   byline?: { original?: string };
   section_name?: string;
-  multimedia?: { url: string }[];
+  // The NYT API serves this as a `{ default, thumbnail }` object with already-absolute
+  // static01.nyt.com URLs, not the older flat array of relative paths.
+  multimedia?: { default?: { url: string }; thumbnail?: { url: string } };
 }
 
 interface NytResponse {
@@ -33,13 +35,13 @@ interface NytResponse {
 }
 
 function toArticle(doc: NytDoc): Article {
-  const image = doc.multimedia?.[0]?.url;
+  const image = doc.multimedia?.default?.url ?? doc.multimedia?.thumbnail?.url;
   return {
     id: `nyt:${doc._id}`,
     title: doc.headline.main,
     summary: doc.abstract,
     url: doc.web_url,
-    imageUrl: image ? `https://www.nytimes.com/${image}` : undefined,
+    imageUrl: image,
     author: doc.byline?.original,
     publishedAt: doc.pub_date,
     source: 'nyt',
