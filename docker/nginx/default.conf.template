@@ -7,7 +7,8 @@
 # adapters call the same relative paths in dev and production.
 
 # Computes whether the forwarded query string needs a leading '&' before the injected api-key,
-# so a request with no other query params doesn't end up with a stray leading '&'.
+# so a request with no other query params doesn't end up with a stray leading '&'. Evaluated
+# against the ORIGINAL request $args (rewrite ... break below only ever touches $uri).
 map $args $api_key_sep {
     ""      "";
     default "&";
@@ -19,35 +20,48 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # proxy_pass below embeds variables to build the forwarded query string, which makes
+    # nginx resolve each upstream host at request time rather than at config load time;
+    # that requires an explicit resolver (verified live: requests 502'd with "no resolver
+    # defined" without this). 127.0.0.11 is Docker's embedded DNS, available to every
+    # container on the default bridge network.
+    resolver 127.0.0.11 valid=30s;
+
     gzip on;
     gzip_types text/css application/javascript application/json image/svg+xml;
     gzip_min_length 1024;
 
     # Guardian: api-key as a query parameter.
+    #
+    # The query string is built explicitly into proxy_pass's own URI (rather than via
+    # `set $args`) because proxy_pass without a URI part forwards the client's original
+    # query string verbatim and ignores a later `set $args`, even after a `rewrite ...
+    # break` has changed $uri (verified against the live API: the key never arrived).
+    # Embedding $args/the key directly in proxy_pass's URI is the pattern that's actually
+    # honored.
     location /api/guardian/ {
         rewrite ^/api/guardian/(.*)$ /$1 break;
-        proxy_pass https://content.guardianapis.com;
         proxy_set_header Host content.guardianapis.com;
         proxy_ssl_server_name on;
-        set $args "${args}${api_key_sep}api-key=${GUARDIAN_API_KEY}";
+        proxy_pass https://content.guardianapis.com$uri?$args${api_key_sep}api-key=${GUARDIAN_API_KEY};
     }
 
-    # NYT: api-key as a query parameter.
+    # NYT: api-key as a query parameter. Same pattern as Guardian above.
     location /api/nyt/ {
         rewrite ^/api/nyt/(.*)$ /$1 break;
-        proxy_pass https://api.nytimes.com/svc;
         proxy_set_header Host api.nytimes.com;
         proxy_ssl_server_name on;
-        set $args "${args}${api_key_sep}api-key=${NYT_API_KEY}";
+        proxy_pass https://api.nytimes.com/svc$uri?$args${api_key_sep}api-key=${NYT_API_KEY};
     }
 
-    # NewsAPI: key as an X-Api-Key header, not a query parameter.
+    # NewsAPI: key as an X-Api-Key header, not a query parameter, so the query string is
+    # forwarded unmodified.
     location /api/newsapi/ {
         rewrite ^/api/newsapi/(.*)$ /$1 break;
-        proxy_pass https://newsapi.org/v2;
         proxy_set_header Host newsapi.org;
         proxy_ssl_server_name on;
         proxy_set_header X-Api-Key ${NEWSAPI_API_KEY};
+        proxy_pass https://newsapi.org/v2$uri?$args;
     }
 
     # Single-page app: serve the built static files, falling back to index.html.
