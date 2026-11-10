@@ -24,7 +24,10 @@ describe('newsApiSource', () => {
       }),
     );
 
-    const articles = await newsApiSource.search({ category: 'science', page: 1 }, new AbortController().signal);
+    const articles = await newsApiSource.search(
+      { category: 'science', page: 1 },
+      new AbortController().signal,
+    );
 
     expect(articles).toEqual([
       {
@@ -49,6 +52,25 @@ describe('newsApiSource', () => {
       }),
     );
 
-    await newsApiSource.search({ category: 'science', from: '2026-01-01', page: 1 }, new AbortController().signal);
+    await newsApiSource.search(
+      { category: 'science', from: '2026-01-01', page: 1 },
+      new AbortController().signal,
+    );
+  });
+
+  it('matches a keyword against the headline via /everything, even with a category and no date range', async () => {
+    server.use(
+      http.get('/api/newsapi/everything', ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        expect(params.get('qInTitle')).toBe('climate');
+        expect(params.get('q')).toBeNull();
+        return HttpResponse.json({ articles: [] });
+      }),
+    );
+
+    await newsApiSource.search(
+      { keyword: 'climate', category: 'science', page: 1 },
+      new AbortController().signal,
+    );
   });
 });
