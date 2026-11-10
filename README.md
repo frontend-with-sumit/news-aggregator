@@ -56,11 +56,35 @@ never baked into the image or the client bundle.
 
 ```text
 src/
-  app/            store, providers, root component
-  services/news/  framework-agnostic news layer (types, adapters)
-  features/       articles, filters, preferences (added incrementally)
-  components/ui/  shared presentational components
-  lib/            small shared utilities
-  styles/         design tokens and global styles
-  test/           test setup and MSW handlers
+  app/              Redux store, providers, root component, theme toggle
+  services/news/    framework-agnostic news layer: Article/ArticleQuery contract,
+                     one adapter per provider (Guardian/NYT/NewsAPI), the dev proxy's
+                     route-to-key mapping
+  features/
+    news/            the merged, multi-provider search query (RTK Query)
+    preferences/      persisted user preferences (sources, categories, author)
+    search/           active search state + every results-screen UI component
+  styles/            design tokens (light/dark) and global styles
+  test/              Vitest setup, renderWithProviders, MSW handlers
 ```
+
+## Architecture
+
+- **Provider adapters** (`src/services/news/`): each provider (Guardian, NYT, NewsAPI)
+  is wrapped behind one shared `NewsSource` interface. UI and Redux state depend only on
+  `Article`/`ArticleQuery`, never on a provider's own response shape — adding a fourth
+  provider means writing one new adapter, not touching any existing code
+  (dependency inversion / open-closed). See `src/services/news/AGENTS.md`.
+- **Multi-category search fan-out**: Guardian and NYT can each take every selected
+  category in a single request; NewsAPI genuinely needs one request per category
+  (capped at 3, with a broader fallback beyond that) — each provider is asked for
+  only what its real API actually supports, not a uniform assumption. Full
+  reasoning and the options weighed: `docs/specs/0004-multi-category-search-grouping/`.
+- **Provider keys stay server-side**: the client only ever calls a same-origin
+  `/api/<provider>/*` path; a reverse proxy injects the real key and forwards the
+  request — Vite's `server.proxy` in dev, a single nginx container in production
+  (see "Running with Docker" above). Decision and options weighed:
+  `docs/specs/0001-news-api-proxy-architecture.md`.
+- **State**: one Redux Toolkit slice per domain (`preferences`, `searchParams`) plus
+  `newsApi` as an RTK Query endpoint that fans out to the three adapters, merges,
+  dedupes, and groups the results.
